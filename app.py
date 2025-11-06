@@ -108,6 +108,11 @@ def master_feed():
         except Exception as e:
             print(f"Error fetching {url}: {e}")
 
+    @app.route("/master.rss")
+def master_rss():
+    return Response(generate_master_rss(), mimetype='application/rss+xml')
+
+
     # Sort items by published date (if available)
     items = sorted(items, key=lambda x: x.get("published", ""), reverse=True)[:100]
 
@@ -131,3 +136,4 @@ def master_feed():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+

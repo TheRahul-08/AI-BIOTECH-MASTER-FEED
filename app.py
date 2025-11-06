@@ -4,10 +4,13 @@ import requests
 import pytz
 from datetime import datetime
 from xml.sax.saxutils import escape
+import urllib3
+
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
-# ✅ Your feeds file
 FEED_FILE = "feeds.txt"
 
 def load_feeds():
@@ -16,10 +19,11 @@ def load_feeds():
 
 def fetch_feed(url):
     try:
-        response = requests.get(url, timeout=15)
+        # Ignore SSL certificate issues
+        response = requests.get(url, timeout=15, verify=False)
         response.raise_for_status()
         feed = feedparser.parse(response.content)
-        if feed.bozo:  # malformed XML or parsing issue
+        if feed.bozo:
             print(f"⚠️ Skipped {url}: {feed.bozo_exception}")
             return []
         return feed.entries
@@ -29,7 +33,10 @@ def fetch_feed(url):
 
 @app.route("/")
 def home():
-    return "<h2>🚀 AI Biotech Master Feed is Live ✅</h2><p>Visit <a href='/master.rss'>/master.rss</a> for combined feed.</p>"
+    return """
+    <h2>🚀 AI Biotech Master Feed is Live ✅</h2>
+    <p>Visit <a href='/master.rss'>/master.rss</a> for the combined feed.</p>
+    """
 
 @app.route("/master.rss")
 def master_feed():
@@ -48,10 +55,12 @@ def master_feed():
             except Exception as e:
                 print(f"⚠️ Error parsing entry from {url}: {e}")
 
-    # Sort by date descending
+    if not all_items:
+        return Response("No valid feeds available.", mimetype="text/plain")
+
+    # Sort by date (descending)
     all_items.sort(key=lambda x: x[0], reverse=True)
 
-    # Generate RSS XML
     rss_items = ""
     for pub_date, title, link, description in all_items[:100]:
         rss_items += f"""
@@ -64,12 +73,12 @@ def master_feed():
 
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8"?>
     <rss version="2.0">
-    <channel>
-        <title>AI Biotech Master Feed</title>
-        <link>https://ai-biotech-master-feed.onrender.com/master.rss</link>
-        <description>Aggregated AI & Biotech News Feed (15 min updates)</description>
-        {rss_items}
-    </channel>
+        <channel>
+            <title>AI Biotech Master Feed</title>
+            <link>https://ai-biotech-master-feed.onrender.com/master.rss</link>
+            <description>Aggregated AI + Biotech News Feed</description>
+            {rss_items}
+        </channel>
     </rss>"""
 
     return Response(rss_feed, mimetype="application/rss+xml")

@@ -116,8 +116,14 @@ def generate_master_rss():
     </rss>"""
     return rss
 
+
 # ==============================
-# 4️⃣ RENDER ENTRY POINT
+# 4️⃣ ENTRY POINT FOR RENDER
 # ==============================
+# Do NOT call app.run() here; Render uses Gunicorn automatically
+# Just expose the app variable so Gunicorn can run it
+
+# For local testing only (optional)
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+

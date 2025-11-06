@@ -5,6 +5,7 @@ import pytz
 from datetime import datetime
 from xml.sax.saxutils import escape
 import urllib3
+import traceback
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -19,14 +20,17 @@ def load_feeds():
 
 def fetch_feed(url):
     try:
-        # Ignore SSL certificate issues
         response = requests.get(url, timeout=15, verify=False)
         response.raise_for_status()
         feed = feedparser.parse(response.content)
-        if feed.bozo:
-            print(f"⚠️ Skipped {url}: {feed.bozo_exception}")
+
+        # Skip bad XML or feeds with no entries
+        if feed.bozo or not hasattr(feed, "entries"):
+            print(f"⚠️ Skipped {url}: Invalid or empty feed")
             return []
+
         return feed.entries
+
     except Exception as e:
         print(f"⚠️ Skipped {url}: {e}")
         return []
@@ -35,28 +39,36 @@ def fetch_feed(url):
 def home():
     return """
     <h2>🚀 AI Biotech Master Feed is Live ✅</h2>
-    <p>Visit <a href='/master.rss'>/master.rss</a> for the combined feed.</p>
+    <p>Visit <a href='/master.rss'>/master.rss</a> for the combined RSS feed.</p>
     """
 
 @app.route("/master.rss")
 def master_feed():
-    feeds = load_feeds()
+    try:
+        feeds = load_feeds()
+    except Exception as e:
+        return Response(f"Error loading feed list: {e}", mimetype="text/plain")
+
     all_items = []
 
     for url in feeds:
-        entries = fetch_feed(url)
-        for entry in entries:
-            try:
-                title = escape(entry.get("title", "No Title"))
-                link = escape(entry.get("link", ""))
-                description = escape(entry.get("summary", ""))
-                pub_date = entry.get("published", datetime.now().isoformat())
-                all_items.append((pub_date, title, link, description))
-            except Exception as e:
-                print(f"⚠️ Error parsing entry from {url}: {e}")
+        try:
+            entries = fetch_feed(url)
+            for entry in entries:
+                try:
+                    title = escape(entry.get("title", "No Title"))
+                    link = escape(entry.get("link", ""))
+                    description = escape(entry.get("summary", ""))
+                    pub_date = entry.get("published", datetime.now().isoformat())
+                    all_items.append((pub_date, title, link, description))
+                except Exception as e:
+                    print(f"⚠️ Error parsing entry from {url}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error fetching {url}: {e}")
+            traceback.print_exc()
 
     if not all_items:
-        return Response("No valid feeds available.", mimetype="text/plain")
+        return Response("No valid feeds found or all failed to parse.", mimetype="text/plain")
 
     # Sort by date (descending)
     all_items.sort(key=lambda x: x[0], reverse=True)
@@ -84,4 +96,4 @@ def master_feed():
     return Response(rss_feed, mimetype="application/rss+xml")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=10000, debug=False)

@@ -1,32 +1,14 @@
 from flask import Flask, Response
 import feedparser
-import requests
-from datetime import datetime
 import pytz
-from xml.sax.saxutils import escape
+from datetime import datetime
+import requests
 
 app = Flask(__name__)
 
-# ==============================
-# 1️⃣ HOME ROUTE
-# ==============================
-@app.route('/')
-def home():
-    return "✅ AI Biotech Master Feed is running. Visit /master.rss for the merged RSS feed."
-
-# ==============================
-# 2️⃣ MAIN RSS ROUTE
-# ==============================
-@app.route('/master.rss')
-def master_rss():
-    return Response(generate_master_rss(), mimetype='application/rss+xml')
-
-# ==============================
-# 3️⃣ FUNCTION TO MERGE ALL FEEDS
-# ==============================
-def generate_master_rss():
-    feeds = [
-        "https://www.nature.com/subjects/biotechnology/rss.xml",
+# List of all your RSS feed URLs
+RSS_FEEDS = [
+     "https://www.nature.com/subjects/biotechnology/rss.xml",
         "https://www.nature.com/subjects/artificial-intelligence/rss.xml",
         "https://feeds.feedburner.com/sciencedaily/biotechnology",
         "https://feeds.feedburner.com/sciencedaily/artificial_intelligence",
@@ -79,51 +61,59 @@ def generate_master_rss():
         "https://www.fiercebiotech.com/rss.xml"
     ]
 
-    items = []
-    for url in feeds:
+@app.route("/master.rss")
+def master_rss():
+    combined_items = []
+    now = datetime.now(pytz.utc)
+
+    for url in RSS_FEEDS:
         try:
-            response = requests.get(url, timeout=10)
-            feed = feedparser.parse(response.content)
+            feed = feedparser.parse(url)
 
-            for entry in feed.entries[:5]:  # take top 5 from each feed
-                title = escape(entry.get("title", "No title"))
-                link = escape(entry.get("link", ""))
-                summary = escape(entry.get("summary", ""))
-                published = entry.get("published", datetime.now().isoformat())
+            # If feed parsing fails (network or SSL)
+            if feed.bozo:
+                print(f"⚠️ Skipped {url}: {feed.bozo_exception}")
+                continue
 
-                items.append(f"""
-                    <item>
-                        <title>{title}</title>
-                        <link>{link}</link>
-                        <description>{summary}</description>
-                        <pubDate>{published}</pubDate>
-                    </item>
-                """)
+            for entry in feed.entries[:5]:  # take top 5 per feed
+                published = getattr(entry, "published", None)
+                title = getattr(entry, "title", "No title")
+                link = getattr(entry, "link", "#")
+                summary = getattr(entry, "summary", "No summary")
+
+                combined_items.append({
+                    "title": title,
+                    "link": link,
+                    "summary": summary,
+                    "published": published or now.isoformat()
+                })
         except Exception as e:
-            print(f"⚠️ Skipped {url}: {e}")
+            print(f"❌ Error fetching {url}: {e}")
+            continue
 
-    # Sort (roughly by most recent)
-    items.sort(reverse=True)
+    # Sort by date (if available)
+    combined_items = sorted(
+        combined_items, key=lambda x: x["published"], reverse=True
+    )
 
-    rss = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <rss version="2.0">
-        <channel>
-            <title>AI Biotech Master Feed</title>
-            <link>https://ai-biotech-master-feed.onrender.com/master.rss</link>
-            <description>Merged feed combining 50+ top sources in AI & Biotech</description>
-            {''.join(items)}
-        </channel>
-    </rss>"""
-    return rss
+    # Build XML safely
+    rss = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    rss += '<rss version="2.0">\n<channel>\n'
+    rss += "<title>AI Biotech Master Feed</title>\n"
+    rss += "<description>Aggregated feed from biotech news sources</description>\n"
+    rss += "<link>https://ai-biotech-master-feed.onrender.com/</link>\n"
+
+    for item in combined_items:
+        rss += f"<item>\n<title>{item['title']}</title>\n"
+        rss += f"<link>{item['link']}</link>\n"
+        rss += f"<description>{item['summary']}</description>\n"
+        rss += f"<pubDate>{item['published']}</pubDate>\n</item>\n"
+
+    rss += "</channel>\n</rss>"
+
+    return Response(rss, mimetype="application/rss+xml")
 
 
-# ==============================
-# 4️⃣ ENTRY POINT FOR RENDER
-# ==============================
-# Do NOT call app.run() here; Render uses Gunicorn automatically
-# Just expose the app variable so Gunicorn can run it
-
-# For local testing only (optional)
+# 🔹 Render entry point (important)
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-

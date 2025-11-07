@@ -1,120 +1,102 @@
 from flask import Flask, Response
 import feedparser
 import requests
-import pytz
-from datetime import datetime
-from xml.sax.saxutils import escape
-import urllib3
-import sys
-import traceback
-
-# Disable SSL warnings
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from bs4 import BeautifulSoup
+import time
+import threading
 
 app = Flask(__name__)
 
-FEED_FILE = "feeds.txt"
+# ✅ Reliable AI + Biotech RSS sources
+FEEDS = [
+    "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml",
+    "https://www.sciencedaily.com/rss/health_medicine/biotechnology.xml",
+    "https://www.genengnews.com/feed/",
+    "https://www.fiercebiotech.com/rss",
+    "https://www.nature.com/subjects/artificial-intelligence.rss",
+    "https://www.nature.com/subjects/biotechnology.rss",
+    "https://www.biopharmadive.com/feeds/news/",
+    "https://www.statnews.com/feed/",
+    "https://feeds.feedburner.com/TechCrunch/artificial-intelligence",
+    "https://venturebeat.com/category/ai/feed/"
+]
 
-def load_feeds():
-    try:
-        with open(FEED_FILE, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()]
-    except Exception as e:
-        print(f"❌ Error loading feeds.txt: {e}")
-        return []
+USER_AGENT = {"User-Agent": "Mozilla/5.0 (compatible; AI-BioFeedBot/1.0; +https://your-site.com)"}
 
-def safe_parse_feed(content, url):
-    """Safely parse XML feed and catch all fatal errors."""
-    try:
-        feed = feedparser.parse(content)
-        if feed.bozo or not getattr(feed, "entries", None):
-            print(f"⚠️ Invalid or empty feed: {url}")
-            return []
-        return feed.entries
-    except Exception as e:
-        print(f"💥 XML parse failed for {url}: {e}")
-        traceback.print_exc()
-        return []
 
-def fetch_feed(url):
-    try:
-        response = requests.get(url, timeout=15, verify=False)
-        response.raise_for_status()
-        return safe_parse_feed(response.content, url)
-    except requests.exceptions.RequestException as e:
-        print(f"🚫 Network error for {url}: {e}")
-        return []
-    except Exception as e:
-        print(f"⚠️ Unexpected error fetching {url}: {e}")
-        traceback.print_exc()
-        return []
-
-@app.route("/")
+@app.route('/')
 def home():
-    return """
-    <h2>🚀 AI Biotech Master Feed is Live ✅</h2>
-    <p>Visit <a href='/master.rss'>/master.rss</a> for the combined RSS feed.</p>
-    """
+    return "<h3>🧬 AI + Biotech Master Feed is Live</h3><p>Visit <a href='/master.rss'>/master.rss</a> to view combined RSS.</p>"
 
-@app.route("/master.rss")
+
+@app.route('/master.rss')
 def master_feed():
-    try:
-        feeds = load_feeds()
-        if not feeds:
-            return Response("feeds.txt missing or empty.", mimetype="text/plain")
+    all_entries = []
 
-        all_items = []
-        for url in feeds:
-            try:
-                entries = fetch_feed(url)
-                for entry in entries:
-                    title = escape(entry.get("title", "No Title"))
-                    link = escape(entry.get("link", ""))
-                    description = escape(entry.get("summary", ""))
-                    pub_date = entry.get("published", datetime.now().isoformat())
-                    all_items.append((pub_date, title, link, description))
-            except Exception as e:
-                print(f"⚠️ Error processing {url}: {e}")
-                traceback.print_exc()
+    for url in FEEDS:
+        try:
+            print(f"🔗 Fetching: {url}")
+            response = requests.get(url, headers=USER_AGENT, timeout=10)
+            response.raise_for_status()
+            feed = feedparser.parse(response.content)
 
-        if not all_items:
-            return Response("No valid feeds found.", mimetype="text/plain")
+            if not feed.entries:
+                print(f"⚠️ Invalid or empty feed: {url}")
+                continue
 
-        # Sort by date (descending)
-        all_items.sort(key=lambda x: x[0], reverse=True)
+            for entry in feed.entries[:5]:  # limit to 5 per source
+                title = entry.get("title", "No title")
+                link = entry.get("link", "#")
+                published = entry.get("published", "No date")
+                summary = entry.get("summary", "")
+                all_entries.append((published, title, link, summary))
 
-        rss_items = "".join(
-            f"""
-            <item>
-                <title>{t}</title>
-                <link>{l}</link>
-                <description>{d}</description>
-                <pubDate>{p}</pubDate>
-            </item>"""
-            for p, t, l, d in all_items[:100]
-        )
+        except Exception as e:
+            print(f"🚫 Error fetching {url}: {e}")
+            continue
 
-        rss_feed = f"""<?xml version="1.0" encoding="UTF-8"?>
-        <rss version="2.0">
-            <channel>
-                <title>AI Biotech Master Feed</title>
-                <link>https://ai-biotech-master-feed.onrender.com/master.rss</link>
-                <description>Aggregated AI + Biotech News Feed</description>
-                {rss_items}
-            </channel>
-        </rss>"""
+    # Sort by date (if available)
+    all_entries.sort(key=lambda x: x[0], reverse=True)
 
-        return Response(rss_feed, mimetype="application/rss+xml")
+    # Build combined RSS XML
+    rss_items = ""
+    for pub, title, link, summary in all_entries:
+        clean_summary = BeautifulSoup(summary, "html.parser").get_text()
+        rss_items += f"""
+        <item>
+            <title>{title}</title>
+            <link>{link}</link>
+            <description><![CDATA[{clean_summary}]]></description>
+            <pubDate>{pub}</pubDate>
+        </item>
+        """
 
-    except SystemExit:
-        print("❌ SystemExit blocked (feedparser abort). Continuing safely.")
-        return Response("Internal error blocked. Some feeds are corrupted.", mimetype="text/plain")
+    rss_feed = f"""<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+        <channel>
+            <title>AI + Biotech Master Feed</title>
+            <link>https://ai-biotech-master-feed.onrender.com/</link>
+            <description>Combined RSS feed of AI and Biotech news</description>
+            {rss_items}
+        </channel>
+    </rss>"""
 
-    except Exception as e:
-        print(f"💥 Top-level error: {e}")
-        traceback.print_exc()
-        return Response(f"Error: {e}", mimetype="text/plain")
+    return Response(rss_feed, mimetype='application/rss+xml')
+
+
+# 🌐 Keep-alive thread for Render
+def keep_alive():
+    while True:
+        try:
+            url = "https://ai-biotech-master-feed.onrender.com/"
+            requests.get(url, timeout=10)
+            print("💤 Pinged self to stay awake.")
+        except Exception as e:
+            print(f"Keep-alive error: {e}")
+        time.sleep(300)  # every 5 minutes
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000, debug=False)
+    # Start keep-alive thread
+    threading.Thread(target=keep_alive, daemon=True).start()
+    app.run(host='0.0.0.0', port=10000)

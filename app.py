@@ -95,3 +95,17 @@ def master_feed():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
+def cache_loop():
+    while True:
+        try:
+            fetch_feeds()
+        except Exception as e:
+            print("Cache refresh error:", e)
+        # Sleep 15 min but ping itself every 5 min to stay alive
+        for i in range(3):
+            try:
+                requests.get("https://ai-biotech-master-feed.onrender.com/", timeout=5)
+            except:
+                pass
+            time.sleep(300)

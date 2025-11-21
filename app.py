@@ -13,6 +13,7 @@ FEEDS = [
     "https://medcitynews.com/feed/",
     "https://www.nature.com/nbt/rss/news",
     "https://www.nature.com/nm/rss/news",
+    "https://www.cell.com/cell-stem-cell/rss",
     "https://www.sciencedaily.com/rss/top/health.xml",
     "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml",
     "https://venturebeat.com/ai/feed/",
@@ -109,3 +110,4 @@ def cache_loop():
             except:
                 pass
             time.sleep(300)
+

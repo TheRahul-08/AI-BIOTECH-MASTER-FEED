@@ -20,6 +20,7 @@ FEEDS = [
     "https://techcrunch.com/category/health/feed/",
     "https://techcrunch.com/category/artificial-intelligence/feed/",
     "https://www.fda.gov/about-fda/fda-newsroom/press-releases.xml",
+    "https://www.newscientist.com/feed/home/?cmpid=RSS%7CNSNS-Home",
     "https://www.ema.europa.eu/en/news-events/rss",
     "https://www.who.int/rss-feeds/news-rss.xml",
     "https://www.broadinstitute.org/rss/news.xml",
@@ -110,4 +111,5 @@ def cache_loop():
             except:
                 pass
             time.sleep(300)
+
 

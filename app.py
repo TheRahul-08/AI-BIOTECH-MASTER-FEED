@@ -15,6 +15,35 @@ FEEDS = [
     "https://www.nature.com/nm/rss/news",
     "https://www.cell.com/cell-stem-cell/rss",
     "https://www.sciencedaily.com/rss/top/health.xml",
+    "http://rss.sciam.com/ScientificAmerican-Global",
+    "https://www.sciencenews.org/feed",
+    "https://scienceblogs.com/rss.xml",
+    "https://www.aracnidotaxonomy.com/feeds/posts/default",
+    "https://sciencefeatured.com/feed/",
+    "https://www.livescience.com/feeds.xml",
+    "https://phys.org/rss-feed/chemistry-news/",
+    "https://scitechdaily.com/feed/",
+    "http://www.futurity.org/feed/",
+    "https://knowablemagazine.org/rss",
+    "https://www.science20.com/news/rss.xml",
+    "http://novataxa.blogspot.com/feeds/posts/default?alt=rss",
+    "http://sciencebusiness.technewslit.com/?feed=rss2",
+    "https://neurocritic.blogspot.com/feeds/posts/default?alt=rss",
+    "https://www.snexplores.org/feed",
+    "https://sciencehook.com/feed/",
+    "http://www.bioserendipity.com/feed/",
+    "https://www.thehindu.com/sci-tech/science/feeder/default.rss",
+    "https://www.dailymail.co.uk/sciencetech/index.rss",
+    "https://scitechdaily.com/news/science/feed",
+    "https://www.theguardian.com/science/rss",
+    "https://www.wired.com/category/science/feed",
+    "https://www.news-medical.net/syndication.axd?format=rss",
+    "https://www.advancedsciencenews.com/feed/",
+    "https://www.nsf.gov/rss/rss_www_news.xml",
+    "https://news.yahoo.com/rss/science",
+    "https://indianexpress.com/section/technology/science/feed",
+    "http://www.independent.co.uk/news/science/rss",
+    "",
     "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml",
     "https://venturebeat.com/ai/feed/",
     "https://techcrunch.com/category/health/feed/",
@@ -111,5 +140,6 @@ def cache_loop():
             except:
                 pass
             time.sleep(300)
+
 
 
